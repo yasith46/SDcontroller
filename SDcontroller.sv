@@ -39,169 +39,169 @@ module SDcontroller(
 	always@(posedge CLK or negedge RST) begin
 		// Reset initialisation
 		if (~RST) begin
-			STATE 				<= INIT_POWERUP;
-			CS1_n					<= 1'b0;
-			DO_BUFFER			<= 56'b0;
-			CONTROLLER_READY	<= 1'b0;
-			BYTE_READY			<= 1'b0;
-			READBUFFER			<= 8'b0; 
+			STATE  <= INIT_POWERUP;
+			CS1_n      <= 1'b0;
+			DO_BUFFER  <= 56'b0;
+			CONTROLLER_READY  <= 1'b0;
+			BYTE_READY <= 1'b0;
+			READBUFFER <= 8'b0; 
 			
-			COUNTER	<= 25'b0;
-			SCLK		<= 1'b0;
+			COUNTER  <= 25'b0;
+			SCLK     <= 1'b0;
 			
 		end else begin
 			
 			case (STATE) 
 				INIT_POWERUP:
 					begin
-						COUNTER	<= COUNTER + 25'b1;
-						SCLK		<= ~SCLK;
+						COUNTER  <= COUNTER + 25'b1;
+						SCLK     <= ~SCLK;
 						
 						if (COUNTER == 25'd25000000)
-							CS1_n	<= 1'b1;
+							CS1_n    <= 1'b1;
 						
 						if (COUNTER == 25'd25000079) begin
-							CS1_n	<= 1'b0;
-							STATE	<= INIT_CMD0;
-							COUNTER	<= 1'b0;
+							CS1_n    <= 1'b0;
+							STATE    <= INIT_CMD0;
+							COUNTER  <= 1'b0;
 						end
 					end
 					
 				INIT_CMD0:
 					begin
-						COUNTER		<= 25'b0;
-						DO_BUFFER	<= 56'hFF_40_00_00_00_00_95;
-						RETURN		<= INIT_CMD55;		
-						STATE			<= SEND;
+						COUNTER    <= 25'b0;
+						DO_BUFFER  <= 56'hFF_40_00_00_00_00_95;
+						RETURN     <= INIT_CMD55;		
+						STATE	     <= SEND;
 					end
 					
 				INIT_CMD55:
 					begin
-						COUNTER		<= 25'b0;
-						DO_BUFFER	<= 56'hFF_77_00_00_00_00_01;
-						RETURN		<= INIT_CMD41;		
-						STATE			<= SEND;
+						COUNTER    <= 25'b0;
+						DO_BUFFER  <= 56'hFF_77_00_00_00_00_01;
+						RETURN     <= INIT_CMD41;		
+						STATE      <= SEND;
 					end
 				
 				INIT_CMD41:
 					begin
-						COUNTER		<= 25'b0;
-						DO_BUFFER	<= 56'hFF_69_00_00_00_00_01;
-						RETURN		<= INIT_POLL;		
-						STATE			<= SEND;
+						COUNTER    <= 25'b0;
+						DO_BUFFER  <= 56'hFF_69_00_00_00_00_01;
+						RETURN     <= INIT_POLL;		
+						STATE      <= SEND;
 					end
 					
 				INIT_POLL:
 					begin
 						if (~DI_BUFFER[0])
-							STATE		<= IDLE;
+							STATE  <= IDLE;
 						else
-							STATE		<= INIT_CMD55;
+							STATE  <= INIT_CMD55;
 					end
 					
 				IDLE:
 					begin
 						if (CTRL_READ) begin
-							STATE					<= READ_BLOCK;
-							CONTROLLER_READY	<= 1'b0;
+							STATE             <= READ_BLOCK;
+							CONTROLLER_READY  <= 1'b0;
 						end else if (CTRL_WRITE) begin
-							STATE					<= WRITE_BLOCK;
+							STATE             <= WRITE_BLOCK;
 							CONTROLLER_READY	<= 1'b0;
 						end else begin
-							STATE					<= IDLE;
-							CONTROLLER_READY	<= 1'b1;
+							STATE             <= IDLE;
+							CONTROLLER_READY  <= 1'b1;
 						end
 					end
 					
 				READ_BLOCK:
 					begin	
-						COUNTER		<= 25'b0;
-						DO_BUFFER	<= {16'hFF_51, ADDRESS, 8'hFF};
-						RETURN		<= READ_BLOCK_WAIT;
-						STATE			<= SEND;
+						COUNTER    <= 25'b0;
+						DO_BUFFER  <= {16'hFF_51, ADDRESS, 8'hFF};
+						RETURN     <= READ_BLOCK_WAIT;
+						STATE      <= SEND;
 					end
 					
 				READ_BLOCK_WAIT:
 					begin
 						if (SCLK && (~DI)) begin
-							BYTE_COUNTER	<= 511;
-							RETURN			<= READ_BLOCK_DATA;
-							STATE				<= RECEIVE_BYTE;
+							BYTE_COUNTER  <= 511;
+							RETURN        <= READ_BLOCK_DATA;
+							STATE         <= RECEIVE_BYTE;
 						end
 						
-						SCLK	<= ~SCLK;
+						SCLK  <= ~SCLK;
 					end
 					
 				READ_BLOCK_DATA:
 					begin
-						READBUFFER	<= DI_BUFFER;
-						BYTE_READY	<= 1'b1;
+						READBUFFER  <= DI_BUFFER;
+						BYTE_READY  <= 1'b1;
 						
 						if (BYTE_COUNTER == 0) begin
-							RETURN	<= READ_BLOCK_CRC;
-							STATE		<= RECEIVE_BYTE;
+							RETURN  <= READ_BLOCK_CRC;
+							STATE   <= RECEIVE_BYTE;
 						end else begin
-							BYTE_COUNTER	<= BYTE_COUNTER - 1;
-							RETURN			<= READ_BLOCK_DATA;
-							STATE				<= RECEIVE_BYTE;
+							BYTE_COUNTER  <= BYTE_COUNTER - 1;
+							RETURN        <= READ_BLOCK_DATA;
+							STATE         <= RECEIVE_BYTE;
 						end
 					end
 					
 				READ_BLOCK_CRC:
 					begin
-						RETURN	<= IDLE;
-						STATE		<= RECEIVE_BYTE;
+						RETURN  <= IDLE;
+						STATE   <= RECEIVE_BYTE;
 					end
 					
 				SEND:	
 					begin	
 						if (SCLK) begin
 							if (COUNTER == 25'd56) begin
-								COUNTER	<= 25'b0;
-								STATE		<= RECEIVE_BYTE_WAIT;
+								COUNTER  <= 25'b0;
+								STATE    <= RECEIVE_BYTE_WAIT;
 							end else begin
-								DO_BUFFER	<= {DO_BUFFER[54:0], 1'b0};
-								COUNTER		<= COUNTER + 25'b1;
+								DO_BUFFER  <= {DO_BUFFER[54:0], 1'b0};
+								COUNTER    <= COUNTER + 25'b1;
 							end
 						end
-						SCLK	<= ~SCLK;
+						SCLK  <= ~SCLK;
 					end
 				
 				RECEIVE_BYTE_WAIT:
 					begin
 						if (SCLK) begin
 							if (~DI) begin
-								DI_BUFFER	<= 8'b0;
-								STATE			<= RECEIVE_BYTE;
+								DI_BUFFER  <= 8'b0;
+								STATE      <= RECEIVE_BYTE;
 							end
 						end
-						SCLK	<= ~SCLK;
+						SCLK  <= ~SCLK;
 					end
 					
 				RECEIVE_BYTE:
 					begin
-						BYTE_READY	<= 1'b0;
+						BYTE_READY  <= 1'b0;
 						if (SCLK) begin
-							DI_BUFFER	<= {DI_BUFFER[6:0], DI};
+							DI_BUFFER  <= {DI_BUFFER[6:0], DI};
 							if (COUNTER == 25'd6) begin
-								COUNTER	<= 25'd0;
-								STATE		<= RETURN;
+								COUNTER  <= 25'd0;
+								STATE    <= RETURN;
 							end else begin
 								COUNTER = COUNTER + 25'b1;
 							end
 						end
-						SCLK	<= ~SCLK;
+						SCLK  <= ~SCLK;
 					end
 					
 				WRITE_BLOCK:
 					begin
-						STATE	<= IDLE;
+						STATE  <= IDLE;
 					end
 					
 				
 				default:
 					begin
-						STATE	<= IDLE;
+						STATE  <= IDLE;
 					end
 			endcase
 		end
